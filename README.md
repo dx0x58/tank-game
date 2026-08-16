@@ -134,7 +134,9 @@ src/
     Combat.ts            flame cone damage and enemy/hull collision resolution
     Steering.ts          stick to drive command, screen-relative or hull-relative
   fx/Effects.ts          pooled debris
-  fx/PixelPass.ts        low-res render target, palette quantisation, dither
+  fx/bandedMaterial.ts   flat banded shading injected into MeshStandardMaterial
+  fx/palette.ts          per-material colour ramps and the palette built from them
+  fx/PixelPass.ts        low-res render target and palette snap
   ui/Hud.ts              HP, score, timer, stick widget, game over overlay
   world/
     Arena.ts             ground, grid, walls, decor
@@ -163,34 +165,84 @@ it at that distance. Bodies visibly shrivel as their health drains.
 
 ## The sprite look
 
-Diablo II's art was 3D models baked down to low resolution sprites in a short indexed
-palette, at a fixed set of facings. LOOK: SPRITE reproduces that from live geometry
-rather than pre-baking anything, and LOOK: SMOOTH turns it all off for comparison.
+The scene is shaded as flat 2D art rather than rendered in 3D and filtered afterwards.
+LOOK: SPRITE adds the pixel grid on top; LOOK: SMOOTH shows the same art at full
+resolution.
 
-Four things together, none of which is worth much alone:
+### Quantise the lighting, not the image
 
-**Low resolution.** The scene renders into a `WebGLRenderTarget` only
-`SPRITE.renderHeight` pixels tall, with `NearestFilter` on both axes, and is blown up to
-the canvas. This is what produces actual pixels rather than a filter that imitates them.
+The first attempt at this posterised the finished picture: a smooth Lambert render, low
+resolution, colours crushed per channel. It did not read as 2D, and the reason is
+structural. Posterising an image puts the band boundaries at level sets of *screen
+luminance*, so they sit in different places on identical objects and slide across a
+surface as it moves. That is a rendered gradient with damage, not a drawn shape.
 
-**Palette and dither.** The upscaling shader quantises each channel to
-`SPRITE.colorLevels` steps. A closed-form 4x4 Bayer matrix nudges each pixel up or down
-by a fraction of a step first, so gradients break into the crosshatch of the indexed
-palette era instead of hard bands.
+Quantising the lighting pins each boundary to the geometry instead. `bandedMaterial.ts`
+injects into `MeshStandardMaterial` at `<lights_fragment_end>` and overwrites three.js's
+accumulation with a three-step choice on `N·L`, plus a fourth colour for facets standing
+in a cast shadow:
 
-**Tone mapping moved into the pass.** three.js skips tone mapping when drawing into a
-render target, so the pass does it - using three's own ACES curve, matrices and exposure
-scaling rather than the usual cheap approximation, so that both LOOK modes grade
-identically. It also applies the transfer function itself, which matters: the colour
-steps have to land where the eye sees them, not in linear light.
+```glsl
+vec3 banded = (ndl > uCut1) ? uLit : ((ndl > uCut0) ? uBase : uShadow);
+banded = (shadow < 0.5 && ndl > uCut0) ? uCast : banded;
+reflectedLight.directDiffuse = banded;
+```
 
-**A texel-aligned camera.** The camera rounds its focus to whole texels along the two
-screen axes, which is the fix for the pixel crawl that otherwise makes the whole scene
-shimmer as it moves. Sliding along the view axis is left alone, since under an
-orthographic projection that moves nothing on screen.
+Everything else that produces a gradient had to go with it, or it reappears inside the
+flat regions at lower contrast:
 
-The trade-off of aligning rather than sub-pixel shifting is that the world scrolls in
-whole pixels. That is what sprite games did anyway.
+- **No hemisphere light.** Its irradiance is `mix(ground, sky, 0.5*dotNL + 0.5)` - a
+  smooth normal-dependent ramp fed into indirect diffuse, which no banding touches. The
+  shadow entry of each ramp is the ambient now.
+- **No specular, no metalness.** A view-dependent lobe slides across curved surfaces and
+  survives quantisation as crawling noise.
+- **No tone mapping.** The ramps are authored colours, not HDR. A filmic curve would
+  remap them before the palette could tell them apart.
+- **`flatShading`, and hard shadows.** `BasicShadowMap` instead of PCF: a penumbra is a
+  sub-pixel gradient that survives downsampling as a fuzzy grey fringe.
+
+Colours are chosen, not multiplied. Each ramp rotates its shadow toward blue and violet
+and its lit face toward yellow. Multiplying one colour by 0.4 keeps the hue and always
+reads as a render turned down.
+
+### Outlines
+
+Flat regions with no value break between them merge, and the silhouette dissolves - so
+banded shading without contours looks worse than what it replaced. Because the scene is
+nothing but procedural primitives, the creases are known analytically: `EdgesGeometry`
+finds them once per primitive and they draw as real GL lines. WebGL clamps line width to
+one pixel, which is exactly right here - always one texel, never two, never flickering,
+because it is geometry rather than a threshold on a continuous quantity. The surfaces
+carry a `polygonOffset` so the lines win the depth test from any angle.
+
+### An authored palette, not a lattice
+
+Per-channel posterisation to N levels does not give N colours, it gives N³ on a regular
+lattice that has nothing to do with the image. Red, green and blue cross their thresholds
+at different moments, so hue drifts across a shaded surface - the same artefact class as
+JPEG chroma damage, which is why it read as a damaged photograph.
+
+The palette is built *from* the ramps (`palette.ts`), so the snap agrees with the shading
+instead of fighting it: on a correctly shaded pixel it is a no-op, and it only cleans up
+edge and blend colours. Dither is near zero, because flat regions are the goal and there
+is almost no quantisation error left to scatter.
+
+### Ground pattern
+
+A plane has one normal, so lighting alone paints it a single flat colour across the whole
+screen. Measured on the first banded build, one colour covered 84% of the frame. Two
+frequencies of world-space hash noise break it into patches quantised to three ground
+tones. World space rather than screen space, so the ground stays put as the camera moves.
+
+### Pixel grid
+
+The scene renders into a `WebGLRenderTarget` with `NearestFilter` both ways and is blown
+up to the canvas at a **whole-number** scale - at a fractional ratio some source texels
+land on four screen pixels and their neighbours on three, and no amount of shading work
+hides that. The camera rounds its focus to whole texels along the two screen axes, which
+is the fix for the pixel crawl that otherwise makes the scene shimmer as it moves.
+Sliding along the view axis is left alone, since under an orthographic projection it
+moves nothing on screen.
 
 ### Why rotation is not stepped
 
@@ -233,8 +285,10 @@ first:
 - `TANK.trackAccel` / `TANK.trackDecel` - how much mass the hull seems to have.
 - `TANK.yawSeparation` - larger values make turning more sluggish.
 - `TANK.turnAuthority` - how much of the stick's lateral axis reaches the tracks.
+- `src/fx/palette.ts` - every colour in the game. Ramps here are the art direction; the
+  post-pass palette is derived from them, so editing a ramp is enough.
 - `SPRITE.renderHeight` - pixel size of the sprite look; lower is chunkier.
-- `SPRITE.colorLevels` / `ditherStrength` - palette depth and how hard it dithers.
+- `SPRITE.ditherStrength` - keep near zero unless you want visible crosshatch.
 - `SPRITE.facings` - distinct angles bodies may be drawn at, 0 for smooth. 8 is the
   Diablo II monster count, 16 what its player characters used. See above for why it
   ships off.

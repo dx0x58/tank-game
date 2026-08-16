@@ -49,7 +49,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, surface: HTMLElement) {
     this.renderer = createRenderer(canvas);
-    this.pixelPass = new PixelPass(this.renderer.toneMappingExposure);
+    this.pixelPass = new PixelPass();
     this.view = new IsometricCamera(window.innerWidth / window.innerHeight);
     this.lighting = new Lighting(this.scene);
     this.input = new InputManager(surface);

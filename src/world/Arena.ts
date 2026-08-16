@@ -1,16 +1,7 @@
-import {
-  BoxGeometry,
-  Color,
-  Fog,
-  GridHelper,
-  Group,
-  LineBasicMaterial,
-  Mesh,
-  MeshStandardMaterial,
-  PlaneGeometry,
-  Scene,
-} from 'three';
+import { BoxGeometry, Color, Group, Mesh, PlaneGeometry, Scene } from 'three';
 import { ARENA } from '../config';
+import { makeBandedMaterial } from '../fx/bandedMaterial';
+import { RAMPS } from '../fx/palette';
 
 /** Deterministic pseudo-random so the decor layout is identical between runs. */
 function seededRandom(seed: number): () => number {
@@ -25,23 +16,17 @@ export function buildArena(scene: Scene): Group {
   const arena = new Group();
   const size = ARENA.halfSize * 2;
 
-  scene.background = new Color(0x0b0e14);
-  scene.fog = new Fog(0x0b0e14, ARENA.halfSize * 0.9, ARENA.halfSize * 2.1);
+  // No fog: a distance gradient is exactly the kind of continuous ramp the
+  // banded look exists to remove.
+  scene.background = new Color(ARENA.skyColor);
 
   const ground = new Mesh(
     new PlaneGeometry(size, size),
-    new MeshStandardMaterial({ color: ARENA.groundColor, roughness: 0.95, metalness: 0.02 }),
+    makeBandedMaterial(RAMPS.ground, { worldPattern: true }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   arena.add(ground);
-
-  const grid = new GridHelper(size, size / 4, ARENA.gridColor, ARENA.gridColor);
-  grid.position.y = 0.02;
-  const gridMaterial = grid.material as LineBasicMaterial;
-  gridMaterial.transparent = true;
-  gridMaterial.opacity = 0.16;
-  arena.add(grid);
 
   arena.add(buildWalls(size));
   arena.add(buildDecor());
@@ -52,7 +37,7 @@ export function buildArena(scene: Scene): Group {
 
 function buildWalls(size: number): Group {
   const walls = new Group();
-  const material = new MeshStandardMaterial({ color: 0x1b2432, roughness: 0.8, metalness: 0.1 });
+  const material = makeBandedMaterial(RAMPS.wall);
   const span = size + ARENA.wallThickness * 2;
   const longWall = new BoxGeometry(span, ARENA.wallHeight, ARENA.wallThickness);
   const sideWall = new BoxGeometry(ARENA.wallThickness, ARENA.wallHeight, span);
@@ -80,19 +65,20 @@ function buildWalls(size: number): Group {
 function buildDecor(): Group {
   const decor = new Group();
   const random = seededRandom(20260816);
-  const material = new MeshStandardMaterial({ color: 0x333f52, roughness: 1 });
-  const geometry = new BoxGeometry(1, 0.08, 1);
+  const material = makeBandedMaterial(RAMPS.plate);
+  const geometry = new BoxGeometry(1, 0.28, 1);
   const usable = ARENA.halfSize - 6;
 
   for (let i = 0; i < 46; i += 1) {
     const plate = new Mesh(geometry, material);
     plate.position.set(
       (random() * 2 - 1) * usable,
-      0.04,
+      0.14,
       (random() * 2 - 1) * usable,
     );
     plate.scale.set(3 + random() * 7, 1, 3 + random() * 7);
     plate.rotation.y = random() * Math.PI;
+    plate.castShadow = true;
     plate.receiveShadow = true;
     decor.add(plate);
   }

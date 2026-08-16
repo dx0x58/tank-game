@@ -1,13 +1,17 @@
 import {
   BoxGeometry,
   CylinderGeometry,
+  EdgesGeometry,
   Group,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
-  MeshStandardMaterial,
   Object3D,
   Vector3,
 } from 'three';
 import { ARENA, FLAME, TANK } from '../config';
+import { makeBandedMaterial } from '../fx/bandedMaterial';
+import { INK, RAMPS } from '../fx/palette';
 import { snapFacing } from '../fx/PixelPass';
 import type { DriveCommand } from '../systems/Steering';
 
@@ -192,10 +196,10 @@ export class Tank {
 function buildHull(): Group {
   const body = new Group();
 
-  const hullMaterial = new MeshStandardMaterial({ color: 0x53694a, roughness: 0.72, metalness: 0.18 });
-  const trackMaterial = new MeshStandardMaterial({ color: 0x22262b, roughness: 0.95 });
-  const turretMaterial = new MeshStandardMaterial({ color: 0x5d7452, roughness: 0.68, metalness: 0.22 });
-  const barrelMaterial = new MeshStandardMaterial({ color: 0x3a4340, roughness: 0.5, metalness: 0.45 });
+  const hullMaterial = makeBandedMaterial(RAMPS.hull);
+  const trackMaterial = makeBandedMaterial(RAMPS.steel);
+  const turretMaterial = makeBandedMaterial(RAMPS.deck);
+  const barrelMaterial = makeBandedMaterial(RAMPS.steel);
 
   const hull = new Mesh(
     new BoxGeometry(TANK.hullWidth, TANK.hullHeight, TANK.hullLength),
@@ -244,15 +248,36 @@ function buildHull(): Group {
     body.add(drum);
   }
 
-  enableShadows(body);
+  finishBody(body);
   return body;
 }
 
-function enableShadows(root: Object3D): void {
+/**
+ * Flat regions of colour with no value break between them merge into each
+ * other and the silhouette dissolves, so every form gets a contour.
+ *
+ * Because the scene is nothing but procedural primitives, the creases are known
+ * analytically: EdgesGeometry finds them once and they draw as real GL lines.
+ * WebGL clamps line width to one pixel, which is exactly the requirement here -
+ * always one texel, never two, never flickering, because it is geometry rather
+ * than a threshold on a continuous quantity.
+ */
+function finishBody(root: Object3D): void {
+  const inkMaterial = new LineBasicMaterial({ color: INK, toneMapped: false });
+  const meshes: Mesh[] = [];
+
   root.traverse((child) => {
-    if (child instanceof Mesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
+    if (child instanceof Mesh) meshes.push(child);
   });
+
+  for (const mesh of meshes) {
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // The surfaces carry a polygon offset, so the lines need no nudge of their
+    // own - which matters, since a local nudge would rotate with the hull.
+    const outline = new LineSegments(new EdgesGeometry(mesh.geometry, 24), inkMaterial);
+    outline.renderOrder = 1;
+    mesh.add(outline);
+  }
 }

@@ -8,8 +8,7 @@ export const ARENA = {
   halfSize: 58,
   wallHeight: 2.6,
   wallThickness: 1.4,
-  groundColor: 0x3c4759,
-  gridColor: 0x6a87a8,
+  skyColor: 0x141a2b,
 };
 
 /**
@@ -20,10 +19,12 @@ export const SPRITE = {
   enabledByDefault: true,
   /** Vertical resolution the scene is rendered at before being upscaled. */
   renderHeight: 288,
-  /** Colour steps per channel after quantisation. */
-  colorLevels: 12,
-  /** Ordered dither strength, in units of one colour step. */
-  ditherStrength: 0.7,
+  /**
+   * Ordered dither, in display units. Near zero on purpose: with banded shading
+   * and an authored palette there is almost no quantisation error left to
+   * scatter, and flat regions are the goal.
+   */
+  ditherStrength: 0.02,
   /**
    * Distinct facings a body may show, as a pre-rendered sprite set had.
    *

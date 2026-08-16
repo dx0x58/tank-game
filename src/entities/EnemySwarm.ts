@@ -1,11 +1,15 @@
 import {
+  EdgesGeometry,
   Group,
   IcosahedronGeometry,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
-  MeshStandardMaterial,
   Vector3,
 } from 'three';
 import { ARENA, ENEMY } from '../config';
+import { makeBandedMaterial } from '../fx/bandedMaterial';
+import { INK, RAMPS } from '../fx/palette';
 import { snapFacing } from '../fx/PixelPass';
 
 export interface Enemy {
@@ -44,17 +48,16 @@ export class EnemySwarm {
   facings = 0;
 
   constructor() {
+    // Detail 0 keeps per-face normals; PolyhedronGeometry smooths them at
+    // detail 1 and up, which would defeat the banding.
     const geometry = new IcosahedronGeometry(ENEMY.radius, 0);
-    const material = new MeshStandardMaterial({
-      color: 0x8c2f3a,
-      emissive: 0x35060c,
-      emissiveIntensity: 1.4,
-      roughness: 0.55,
-      metalness: 0.15,
-    });
+    const material = makeBandedMaterial(RAMPS.enemy);
+    const outlineGeometry = new EdgesGeometry(geometry, 24);
+    const inkMaterial = new LineBasicMaterial({ color: INK, toneMapped: false });
 
     for (let i = 0; i < ENEMY.maxAlive; i += 1) {
       const mesh = new Mesh(geometry, material);
+      mesh.add(new LineSegments(outlineGeometry, inkMaterial));
       mesh.castShadow = true;
       mesh.visible = false;
       mesh.scale.set(1, Y_SQUASH, 1);

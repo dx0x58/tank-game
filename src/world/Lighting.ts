@@ -1,4 +1,4 @@
-import { DirectionalLight, HemisphereLight, Object3D, Scene, Vector3 } from 'three';
+import { DirectionalLight, Object3D, Scene, Vector3 } from 'three';
 import { isCoarsePointer } from '../core/renderer';
 
 const SHADOW_EXTENT = 42;
@@ -13,9 +13,10 @@ export class Lighting {
   private readonly lightTarget = new Object3D();
 
   constructor(scene: Scene) {
-    scene.add(new HemisphereLight(0xbcd8ff, 0x2c3648, 2.6));
-
-    this.keyLight = new DirectionalLight(0xfff0d8, 3.4);
+    // No hemisphere fill. Its irradiance is mix(ground, sky, 0.5*dotNL + 0.5),
+    // a smooth normal-dependent gradient that would reappear inside every flat
+    // band. The shadow entry of each ramp is the ambient now.
+    this.keyLight = new DirectionalLight(0xffffff, 1);
     this.keyLight.position.copy(LIGHT_OFFSET);
     this.keyLight.castShadow = true;
     this.keyLight.shadow.mapSize.set(
@@ -28,8 +29,9 @@ export class Lighting {
     this.keyLight.shadow.camera.bottom = -SHADOW_EXTENT;
     this.keyLight.shadow.camera.near = 1;
     this.keyLight.shadow.camera.far = 140;
-    this.keyLight.shadow.bias = -0.0006;
-    this.keyLight.shadow.normalBias = 0.03;
+    // Retuned for BasicShadowMap, whose single tap shows acne that PCF hid.
+    this.keyLight.shadow.bias = -0.0012;
+    this.keyLight.shadow.normalBias = 0.08;
     this.keyLight.target = this.lightTarget;
 
     scene.add(this.keyLight);

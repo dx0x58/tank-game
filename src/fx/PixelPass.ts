@@ -7,11 +7,13 @@ import {
   Scene,
   ShaderMaterial,
   Vector2,
+  Vector3,
   WebGLRenderTarget,
   type Camera,
   type WebGLRenderer,
 } from 'three';
 import { SPRITE } from '../config';
+import { buildPalette, PALETTE_MAX } from './palette';
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -29,39 +31,14 @@ const vertexShader = /* glsl */ `
  * steps land where the eye sees them rather than in linear light.
  */
 const fragmentShader = /* glsl */ `
+  #define PALETTE_MAX ${PALETTE_MAX}
+
   uniform sampler2D tScene;
-  uniform vec2 uResolution;
-  uniform float uLevels;
+  uniform vec3 uPalette[ PALETTE_MAX ];
+  uniform int uPaletteCount;
   uniform float uDither;
-  uniform float uExposure;
+  uniform vec2 uResolution;
   varying vec2 vUv;
-
-  // three.js's own ACES filmic curve, matrices and exposure scaling included,
-  // so the sprite look grades identically to the unfiltered render.
-  vec3 rrtAndOdtFit(vec3 v) {
-    vec3 a = v * (v + 0.0245786) - 0.000090537;
-    vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return a / b;
-  }
-
-  vec3 tonemap(vec3 colour) {
-    const mat3 inputMat = mat3(
-      vec3(0.59719, 0.07600, 0.02840),
-      vec3(0.35458, 0.90834, 0.13383),
-      vec3(0.04823, 0.01566, 0.83777)
-    );
-    const mat3 outputMat = mat3(
-      vec3( 1.60475, -0.10208, -0.00327),
-      vec3(-0.53108,  1.10813, -0.07276),
-      vec3(-0.07367, -0.00605,  1.07602)
-    );
-
-    colour *= uExposure / 0.6;
-    colour = inputMat * colour;
-    colour = rrtAndOdtFit(colour);
-    colour = outputMat * colour;
-    return clamp(colour, 0.0, 1.0);
-  }
 
   vec3 linearToSrgb(vec3 c) {
     return mix(1.055 * pow(c, vec3(0.4166667)) - 0.055, c * 12.92, step(c, vec3(0.0031308)));
@@ -78,22 +55,38 @@ const fragmentShader = /* glsl */ `
   }
 
   void main() {
-    vec3 colour = linearToSrgb(tonemap(texture2D(tScene, vUv).rgb));
+    vec3 colour = clamp(linearToSrgb(texture2D(tScene, vUv).rgb), 0.0, 1.0);
 
-    // Nudge each pixel up or down by a fraction of one colour step before
-    // snapping, so gradients break into a pattern instead of hard bands.
-    float threshold = bayer4(floor(vUv * uResolution)) - 0.5;
-    colour += threshold * uDither / uLevels;
+    // Only edge and blend pixels have anything left to dither: the shading is
+    // already flat and already on-palette.
+    if (uDither > 0.0) {
+      colour += (bayer4(floor(vUv * uResolution)) - 0.5) * uDither;
+    }
 
-    colour = floor(colour * uLevels + 0.5) / uLevels;
-    gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
+    // Nearest entry of an authored palette, not a per-channel lattice. Channels
+    // crossing their own thresholds independently is what made shaded surfaces
+    // drift in hue and read as a damaged photograph.
+    int best = 0;
+    float bestDistance = 1e9;
+    for (int i = 0; i < PALETTE_MAX; i += 1) {
+      if (i >= uPaletteCount) break;
+      vec3 delta = (colour - uPalette[i]) * vec3(1.5, 1.0, 1.0);
+      float distance = dot(delta, delta);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+      }
+    }
+
+    gl_FragColor = vec4(uPalette[best], 1.0);
   }
 `;
 
 /**
  * Renders the scene into a small buffer and blows it up with nearest-neighbour
- * sampling, then quantises the colours with an ordered dither. Low resolution
- * plus a short palette is what reads as sprite work rather than 3D.
+ * sampling, then snaps every pixel to the authored palette. The shading is
+ * already flat by the time it gets here; this stage supplies the pixel grid and
+ * keeps stray blend colours out of the palette.
  */
 export class PixelPass {
   readonly target: WebGLRenderTarget;
@@ -104,29 +97,43 @@ export class PixelPass {
   private width = 1;
   private height = 1;
 
-  constructor(exposure: number) {
+  constructor() {
     this.target = new WebGLRenderTarget(1, 1, {
       minFilter: NearestFilter,
       magFilter: NearestFilter,
       depthBuffer: true,
       stencilBuffer: false,
+      samples: 0,
     });
     this.target.texture.colorSpace = LinearSRGBColorSpace;
     this.target.texture.generateMipmaps = false;
 
+    const palette = buildPalette();
+    const entries: Vector3[] = [];
+    for (let i = 0; i < PALETTE_MAX; i += 1) {
+      const at = i * 3;
+      entries.push(
+        at + 2 < palette.length
+          ? new Vector3(palette[at], palette[at + 1], palette[at + 2])
+          : new Vector3(),
+      );
+    }
+
     this.material = new ShaderMaterial({
       uniforms: {
         tScene: { value: this.target.texture },
-        uResolution: { value: new Vector2(1, 1) },
-        uLevels: { value: SPRITE.colorLevels },
+        uPalette: { value: entries },
+        uPaletteCount: { value: Math.min(PALETTE_MAX, palette.length / 3) },
         uDither: { value: SPRITE.ditherStrength },
-        uExposure: { value: exposure },
+        uResolution: { value: new Vector2(1, 1) },
       },
       vertexShader,
       fragmentShader,
       depthTest: false,
       depthWrite: false,
     });
+    // Nothing else should touch the colours after the palette has chosen them.
+    this.material.toneMapped = false;
 
     this.quadScene.add(new Mesh(new PlaneGeometry(2, 2), this.material));
   }
@@ -136,10 +143,15 @@ export class PixelPass {
     return { width: this.width, height: this.height };
   }
 
+  /**
+   * The upscale factor has to be a whole number. At a fractional ratio some
+   * source texels land on four screen pixels and their neighbours on three, so
+   * the pixel grid is visibly uneven and no amount of shading work can hide it.
+   */
   setSize(viewWidth: number, viewHeight: number): void {
-    this.height = Math.max(1, Math.round(SPRITE.renderHeight));
-    // Keep pixels square by deriving the width from the view's aspect ratio.
-    this.width = Math.max(1, Math.round(this.height * (viewWidth / viewHeight)));
+    const scale = Math.max(1, Math.floor(viewHeight / SPRITE.renderHeight));
+    this.height = Math.max(1, Math.floor(viewHeight / scale));
+    this.width = Math.max(1, Math.floor(viewWidth / scale));
 
     this.target.setSize(this.width, this.height);
     this.material.uniforms.uResolution!.value.set(this.width, this.height);
