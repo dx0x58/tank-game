@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#10141c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Tank Arena</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0e14'/%3E%3Crect x='5' y='17' width='22' height='7' rx='2' fill='%2353694a'/%3E%3Crect x='12' y='11' width='9' height='6' rx='2' fill='%235d7452'/%3E%3Crect x='20' y='12' width='9' height='2.5' fill='%233a4340'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div id="viewport">
+      <canvas id="scene"></canvas>
+
+      <div id="hud">
+        <div class="hud-panel hud-left">
+          <div class="hp-label">HULL</div>
+          <div class="hp-track"><div id="hp-fill" class="hp-fill"></div></div>
+        </div>
+        <div class="hud-stack">
+          <div class="hud-panel hud-right">
+            <div class="stat"><span class="stat-label">SCORE</span><span id="stat-score">0</span></div>
+            <div class="stat"><span class="stat-label">TIME</span><span id="stat-time">0:00</span></div>
+          </div>
+          <button id="enemy-toggle" class="hud-toggle" type="button" aria-pressed="true">
+            ENEMIES: ON
+          </button>
+        </div>
+      </div>
+
+      <div id="stick-widget" class="stick-widget">
+        <div class="stick-base">
+          <div class="stick-axis stick-axis-x"></div>
+          <div class="stick-axis stick-axis-y"></div>
+          <div id="stick-knob" class="stick-knob"></div>
+        </div>
+      </div>
+
+      <div id="damage-flash" class="damage-flash"></div>
+
+      <div id="fire-hint" class="fire-hint"></div>
+
+      <div id="game-over" class="overlay hidden">
+        <div class="overlay-card">
+          <h1>WRECKED</h1>
+          <p class="overlay-stats">
+            Score <span id="final-score">0</span> &middot; Survived <span id="final-time">0:00</span>
+          </p>
+          <button id="restart-button" type="button">REDEPLOY</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

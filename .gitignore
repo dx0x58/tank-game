@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Local agent tooling state, not part of the project
+.claude/
+.claude-flow/
+.swarm/
+ruvector.db
+ruvector.db.lock
