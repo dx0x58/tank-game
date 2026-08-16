@@ -9,6 +9,9 @@ const BACKWARD_KEYS = new Set(['ArrowDown', 'KeyS']);
 const LEFT_KEYS = new Set(['ArrowLeft', 'KeyA']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'KeyD']);
 
+/** HUD controls that must keep their native touch behaviour. */
+const INTERACTIVE = 'button, input, select, textarea, a';
+
 /**
  * Merges the two driving schemes into one InputState: a touch stick anywhere on
  * the left half of the screen, and the keyboard on desktop. The flamethrower
@@ -59,10 +62,14 @@ export class InputManager {
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (event.pointerType === 'mouse') return;
 
-    event.preventDefault();
+    // Touches that land on a HUD control belong to it. Calling preventDefault
+    // here would suppress the compatibility click and break those controls.
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE)) return;
+
     const onLeftHalf = event.clientX < this.surface.clientWidth / 2;
     if (!onLeftHalf || this.stickPointerId !== null) return;
 
+    event.preventDefault();
     this.stickPointerId = event.pointerId;
     this.originX = event.clientX;
     this.originY = event.clientY;

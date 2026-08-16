@@ -65,6 +65,8 @@ export class Game {
     });
     this.hud.setEnemiesEnabled(this.swarm.isEnabled);
     this.hud.setFireEnabled(this.fireEnabled);
+    this.hud.configureSpeedSlider(TANK.speedScaleMin, TANK.speedScaleMax);
+    this.hud.onSpeedChange((scale) => this.tank.setSpeedScale(scale));
     window.addEventListener('resize', () => this.resize());
     this.resize();
     this.refreshHud();
@@ -90,7 +92,7 @@ export class Game {
     this.tank.nozzlePosition(this.nozzle);
     this.tank.tailPosition(this.tail);
     this.flame.update(dt, this.nozzle, this.tank.forward, burning);
-    this.trail.update(dt, this.tail, burning);
+    this.trail.update(dt, this.tail, burning, this.tank.topSpeed);
     this.effects.update(dt);
     this.view.update(this.tank.position, dt);
     this.lighting.follow(this.tank.position);

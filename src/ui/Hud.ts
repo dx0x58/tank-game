@@ -13,6 +13,8 @@ export class Hud {
   private readonly restartButton = requireElement<HTMLButtonElement>('restart-button');
   private readonly enemyToggle = requireElement<HTMLButtonElement>('enemy-toggle');
   private readonly fireToggle = requireElement<HTMLButtonElement>('fire-toggle');
+  private readonly speedSlider = requireElement<HTMLInputElement>('speed-slider');
+  private readonly speedValue = requireElement<HTMLSpanElement>('speed-value');
 
   private knobTravel = 34;
   private hintHidden = false;
@@ -44,6 +46,23 @@ export class Hud {
 
   setFireEnabled(enabled: boolean): void {
     paintToggle(this.fireToggle, 'FIRE', enabled);
+  }
+
+  /** The handler receives a multiplier of the tank's base top speed. */
+  onSpeedChange(handler: (scale: number) => void): void {
+    const emit = (): void => {
+      const percent = Number(this.speedSlider.value);
+      this.speedValue.textContent = `${percent}%`;
+      handler(percent / 100);
+    };
+
+    this.speedSlider.addEventListener('input', emit);
+    emit();
+  }
+
+  configureSpeedSlider(min: number, max: number): void {
+    this.speedSlider.min = String(Math.round(min * 100));
+    this.speedSlider.max = String(Math.round(max * 100));
   }
 
   setHealth(current: number, max: number): void {

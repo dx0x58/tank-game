@@ -123,6 +123,36 @@ body {
   transform: translateY(1px);
 }
 
+.hud-slider {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 8px 12px 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.slider-value {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#speed-slider {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 4px 0 0;
+  /* The viewport suppresses touch gestures; this control needs them back. */
+  touch-action: auto;
+  pointer-events: auto;
+  accent-color: var(--hud-accent);
+  cursor: pointer;
+}
+
 .hud-right {
   display: flex;
   flex-direction: column;

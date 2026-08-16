@@ -14,6 +14,8 @@ import { FIRE_TRAIL, TANK } from '../config';
 export interface FirePatch {
   readonly position: Vector3;
   life: number;
+  /** Lifetime this patch was born with; see `patchLife`. */
+  maxLife: number;
   /** Current burn radius. Damage and the drawn blob share this exact value. */
   radius: number;
   seed: number;
@@ -23,9 +25,11 @@ export interface FirePatch {
 /**
  * Patch lifetime is derived rather than tuned: at top speed the oldest patch
  * dies exactly when the trail has reached `lengthInHulls` hull lengths, so the
- * requested length holds without a second constant to keep in sync.
+ * requested length holds without a second constant to keep in sync. It is
+ * computed per patch because the speed slider moves the top speed underneath us.
  */
-const PATCH_LIFE = (TANK.hullLength * FIRE_TRAIL.lengthInHulls) / TANK.maxTrackSpeed;
+const patchLife = (topSpeed: number): number =>
+  (TANK.hullLength * FIRE_TRAIL.lengthInHulls) / Math.max(topSpeed, 0.1);
 
 const HOT = new Color(0xffae24);
 const MID = new Color(0xff3606);
@@ -69,6 +73,7 @@ export class FireTrail {
       this.patches.push({
         position: new Vector3(),
         life: 0,
+        maxLife: 1,
         radius: 0,
         seed: 0,
         active: false,
@@ -80,10 +85,10 @@ export class FireTrail {
     return this.patches;
   }
 
-  update(dt: number, tail: Vector3, emitting: boolean): void {
+  update(dt: number, tail: Vector3, emitting: boolean, topSpeed: number): void {
     this.clock += dt;
 
-    if (emitting) this.emit(tail);
+    if (emitting) this.emit(tail, topSpeed);
     else this.seeded = false;
 
     for (const patch of this.patches) {
@@ -113,7 +118,7 @@ export class FireTrail {
   }
 
   /** Patches are laid by distance travelled, so density does not depend on speed. */
-  private emit(tail: Vector3): void {
+  private emit(tail: Vector3, topSpeed: number): void {
     if (!this.seeded) {
       this.seeded = true;
       this.lastEmission.copy(tail);
@@ -132,7 +137,8 @@ export class FireTrail {
       this.next = (this.next + 1) % this.patches.length;
 
       patch.active = true;
-      patch.life = PATCH_LIFE;
+      patch.maxLife = patchLife(topSpeed);
+      patch.life = patch.maxLife;
       patch.radius = FIRE_TRAIL.radius * FIRE_TRAIL.startScale;
       patch.seed = Math.random() * Math.PI * 2;
       patch.position.set(tail.x, FIRE_TRAIL.hoverHeight, tail.z);
@@ -173,7 +179,7 @@ export class FireTrail {
 
   /** 0 when the patch is laid, 1 when it burns out. */
   private ageOf(patch: FirePatch): number {
-    return 1 - patch.life / PATCH_LIFE;
+    return 1 - patch.life / patch.maxLife;
   }
 }
 

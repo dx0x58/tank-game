@@ -26,6 +26,7 @@ export class Tank {
   /** Signed speed of each track in metres per second. */
   private trackLeft = 0;
   private trackRight = 0;
+  private speedScale = 1;
   private speed = 0;
   private yawRate = 0;
   private lean = { pitch: 0, roll: 0 };
@@ -40,6 +41,22 @@ export class Tank {
 
   get isAlive(): boolean {
     return this.health > 0;
+  }
+
+  /** Current forward top speed, after the HUD speed slider is applied. */
+  get topSpeed(): number {
+    return TANK.maxTrackSpeed * this.speedScale;
+  }
+
+  /**
+   * Acceleration scales along with top speed, so raising the slider makes the
+   * tank quicker rather than mushier: time to reach top speed stays the same.
+   */
+  setSpeedScale(scale: number): void {
+    this.speedScale = Math.min(
+      TANK.speedScaleMax,
+      Math.max(TANK.speedScaleMin, scale),
+    );
   }
 
   /** World position of the nozzle, where the flame jet originates. */
@@ -80,8 +97,8 @@ export class Tank {
   update(input: InputState, dt: number): void {
     const [targetLeft, targetRight] = this.resolveTrackTargets(input);
 
-    this.trackLeft = approachTrackSpeed(this.trackLeft, targetLeft, dt);
-    this.trackRight = approachTrackSpeed(this.trackRight, targetRight, dt);
+    this.trackLeft = this.approachTrackSpeed(this.trackLeft, targetLeft, dt);
+    this.trackRight = this.approachTrackSpeed(this.trackRight, targetRight, dt);
 
     const previousSpeed = this.speed;
     this.speed = (this.trackLeft + this.trackRight) / 2;
@@ -104,8 +121,12 @@ export class Tank {
    * tracks counter-rotate, which is what produces the pivot turn on the spot.
    */
   private resolveTrackTargets(input: InputState): [number, number] {
-    let left = input.throttle + input.steer * TANK.turnAuthority;
-    let right = input.throttle - input.steer * TANK.turnAuthority;
+    const reversing =
+      TANK.invertSteerInReverse && this.speed < -TANK.reverseThreshold;
+    const steer = reversing ? -input.steer : input.steer;
+
+    let left = input.throttle + steer * TANK.turnAuthority;
+    let right = input.throttle - steer * TANK.turnAuthority;
 
     const peak = Math.max(Math.abs(left), Math.abs(right));
     if (peak > 1) {
@@ -113,7 +134,23 @@ export class Tank {
       right /= peak;
     }
 
-    return [scaleTrackTarget(left), scaleTrackTarget(right)];
+    return [this.scaleTrackTarget(left), this.scaleTrackTarget(right)];
+  }
+
+  private scaleTrackTarget(normalized: number): number {
+    const limit = normalized >= 0 ? this.topSpeed : this.topSpeed * TANK.reverseFactor;
+    return normalized * limit;
+  }
+
+  private approachTrackSpeed(current: number, target: number, dt: number): number {
+    // Building up speed is slow; shedding it is quicker, which reads as mass.
+    const speedingUp =
+      Math.abs(target) > Math.abs(current) && Math.sign(target) === Math.sign(current);
+    const rate = (speedingUp || current === 0 ? TANK.trackAccel : TANK.trackDecel) * this.speedScale;
+    const maxDelta = rate * dt;
+    const delta = target - current;
+
+    return Math.abs(delta) <= maxDelta ? target : current + Math.sign(delta) * maxDelta;
   }
 
   private updateLean(previousSpeed: number, dt: number): void {
@@ -146,21 +183,6 @@ export class Tank {
     this.body.rotation.x = this.lean.pitch;
     this.body.rotation.z = this.lean.roll;
   }
-}
-
-function scaleTrackTarget(normalized: number): number {
-  const limit = normalized >= 0 ? TANK.maxTrackSpeed : TANK.maxTrackSpeed * TANK.reverseFactor;
-  return normalized * limit;
-}
-
-function approachTrackSpeed(current: number, target: number, dt: number): number {
-  // Building up speed is slow; shedding it is quicker, which reads as mass.
-  const speedingUp = Math.abs(target) > Math.abs(current) && Math.sign(target) === Math.sign(current);
-  const rate = speedingUp || current === 0 ? TANK.trackAccel : TANK.trackDecel;
-  const maxDelta = rate * dt;
-  const delta = target - current;
-
-  return Math.abs(delta) <= maxDelta ? target : current + Math.sign(delta) * maxDelta;
 }
 
 function buildHull(): Group {

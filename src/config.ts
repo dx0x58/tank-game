@@ -44,6 +44,20 @@ export const TANK = {
   /** How much of the stick's lateral axis is mixed into the track difference. */
   turnAuthority: 0.62,
 
+  /**
+   * Steering follows the direction of travel, so it flips once the tank is
+   * actually rolling backwards: pushing the stick right curves the tank right
+   * on screen instead of swinging the nose right and the tail left. From an
+   * isometric camera the hull-relative alternative is close to unreadable.
+   */
+  invertSteerInReverse: true,
+  /** Reverse speed below which steering stays direct, to avoid flapping at a standstill. */
+  reverseThreshold: 0.5,
+
+  /** Bounds of the HUD speed slider, as a multiplier of maxTrackSpeed. */
+  speedScaleMin: 0.4,
+  speedScaleMax: 2,
+
   /** Track speed change limits. Low values are what make the hull feel heavy. */
   trackAccel: 6.0,
   trackDecel: 11.0,

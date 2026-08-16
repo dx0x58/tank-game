@@ -26,6 +26,7 @@ phone that shares the network to test the touch controls.
 | Fire | Always on, no input | Always on, no input |
 | Enemies on/off | ENEMIES button, top right | ENEMIES button, top right |
 | Fire on/off | FIRE button, top right | FIRE button, top right |
+| Speed | SPEED slider, top right | SPEED slider, top right |
 | Restart | Redeploy button | Redeploy button |
 
 Two switches turn the game back into a test drive. ENEMIES clears the arena and stops
@@ -61,8 +62,28 @@ for free rather than being special-cased:
 - turning while moving requires slowing one track, and the acceleration limit is what
   makes that feel heavy.
 
-Reverse is deliberately authentic: with the stick back, steering input moves the
-hull's nose the opposite way, exactly as tracked vehicles behave.
+### Steering follows the direction of travel
+
+Steering flips once the tank is actually rolling backwards, so pushing the stick right
+always curves the tank right rather than swinging the nose right and the tail left. The
+hull-relative alternative is authentic but close to unreadable from a fixed isometric
+camera, where "which way is the tank facing" is exactly the thing that is hard to see.
+
+The flip keys off measured speed, not off the stick, so braking from a forward run keeps
+direct steering for as long as the tank is still moving forward. `TANK.reverseThreshold`
+keeps it from flapping around a standstill, and `TANK.invertSteerInReverse` turns the
+whole behaviour off.
+
+One consequence of the drive model is worth knowing: slam from full forward to full
+reverse and the tank briefly ignores steering entirely. Both tracks are pinned at the
+same deceleration limit, so there is no difference between them to yaw with. Ease off
+the throttle and steering returns.
+
+### Speed slider
+
+The SPEED slider scales top speed between 40% and 200%. Acceleration scales with it, so
+a faster tank is genuinely quicker rather than mushy: time to reach top speed stays put,
+and so does the sense of weight. The fire trail follows too - see below.
 
 ## Layout
 
@@ -121,6 +142,10 @@ depend on speed. Their lifetime is derived, not tuned: at top speed the oldest p
 burns out exactly when the trail has reached `FIRE_TRAIL.lengthInHulls` hull lengths,
 which keeps the requested length true without a second constant to maintain. Slower
 driving simply leaves a shorter trail, because fire burns out.
+
+That lifetime is computed per patch, at the moment it is laid, because the speed slider
+moves top speed underneath the trail. Without that the trail would stretch to twice its
+length at 200% and shrink to a stub at 40%.
 
 Each patch carries a single `radius` that shrinks as it cools, and both the drawn blob
 and the damage test read that same value, so what you see burning is exactly what
