@@ -27,6 +27,7 @@ phone that shares the network to test the touch controls.
 | Enemies on/off | ENEMIES button, top right | ENEMIES button, top right |
 | Fire on/off | FIRE button, top right | FIRE button, top right |
 | Steering scheme | STEER button, top right | STEER button, top right |
+| Sprite look on/off | LOOK button, top right | LOOK button, top right |
 | Speed | SPEED slider, top right | SPEED slider, top right |
 | Restart | Redeploy button | Redeploy button |
 
@@ -132,7 +133,8 @@ src/
   systems/
     Combat.ts            flame cone damage and enemy/hull collision resolution
     Steering.ts          stick to drive command, screen-relative or hull-relative
-  fx/Effects.ts          muzzle flash and pooled debris
+  fx/Effects.ts          pooled debris
+  fx/PixelPass.ts        low-res render target, palette quantisation, dither
   ui/Hud.ts              HP, score, timer, stick widget, game over overlay
   world/
     Arena.ts             ground, grid, walls, decor
@@ -158,6 +160,38 @@ forward axis takes `damagePerSecond * falloff * dt`, with damage tapering toward
 tip. The cone is widened by the angle the target's own radius subtends, so a body
 pressed against the nozzle still counts as hit even though a narrow cone barely covers
 it at that distance. Bodies visibly shrivel as their health drains.
+
+## The sprite look
+
+Diablo II's art was 3D models baked down to low resolution sprites in a short indexed
+palette, at a fixed set of facings. LOOK: SPRITE reproduces that from live geometry
+rather than pre-baking anything, and LOOK: SMOOTH turns it all off for comparison.
+
+Four things together, none of which is worth much alone:
+
+**Low resolution.** The scene renders into a `WebGLRenderTarget` only
+`SPRITE.renderHeight` pixels tall, with `NearestFilter` on both axes, and is blown up to
+the canvas. This is what produces actual pixels rather than a filter that imitates them.
+
+**Palette and dither.** The upscaling shader quantises each channel to
+`SPRITE.colorLevels` steps. A closed-form 4x4 Bayer matrix nudges each pixel up or down
+by a fraction of a step first, so gradients break into the crosshatch of the indexed
+palette era instead of hard bands.
+
+**Tone mapping moved into the pass.** three.js skips tone mapping when drawing into a
+render target, so the pass does it - using three's own ACES curve, matrices and exposure
+scaling rather than the usual cheap approximation, so that both LOOK modes grade
+identically. It also applies the transfer function itself, which matters: the colour
+steps have to land where the eye sees them, not in linear light.
+
+**Facings and a texel-aligned camera.** Bodies snap to `SPRITE.facings` distinct angles,
+as a pre-rendered sprite set had. The camera rounds its focus to whole texels along the
+two screen axes, which is the fix for the pixel crawl that otherwise makes the whole
+scene shimmer as it moves. Sliding along the view axis is left alone, since under an
+orthographic projection that moves nothing on screen.
+
+The trade-off of aligning rather than sub-pixel shifting is that the world scrolls in
+whole pixels. That is what sprite games did anyway.
 
 ## The fire trail
 
@@ -187,6 +221,10 @@ first:
 - `TANK.trackAccel` / `TANK.trackDecel` - how much mass the hull seems to have.
 - `TANK.yawSeparation` - larger values make turning more sluggish.
 - `TANK.turnAuthority` - how much of the stick's lateral axis reaches the tracks.
+- `SPRITE.renderHeight` - pixel size of the sprite look; lower is chunkier.
+- `SPRITE.colorLevels` / `ditherStrength` - palette depth and how hard it dithers.
+- `SPRITE.facings` - distinct angles bodies may be drawn at; 8 is the Diablo II monster
+  count, 16 what its player characters used.
 - `STEERING.fullSteerAngle` - how sharply SCREEN mode corrects a heading error.
 - `STEERING.enterReverseAngle` - how far behind a target must be before backing up.
 - `ENEMY.spawnIntervalStart` / `spawnIntervalEnd` / `rampDuration` - pressure curve.

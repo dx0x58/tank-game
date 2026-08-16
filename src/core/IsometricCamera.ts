@@ -16,11 +16,38 @@ export class IsometricCamera {
   private readonly shakeOffset = new Vector3();
   private shake = 0;
 
+  /** Screen axes of this fixed camera, used to align the view to whole texels. */
+  private readonly viewForward = new Vector3();
+  private readonly viewRight = new Vector3();
+  private readonly viewUp = new Vector3();
+  private readonly aligned = new Vector3();
+  private texelsWide = 0;
+  private texelsHigh = 0;
+  private unitsPerTexelX = 0;
+  private unitsPerTexelY = 0;
+
   constructor(aspect: number) {
     this.camera = new OrthographicCamera(-1, 1, 1, -1, CAMERA.near, CAMERA.far);
+
+    this.viewForward.copy(this.offset).negate().normalize();
+    this.viewRight.crossVectors(this.viewForward, new Vector3(0, 1, 0)).normalize();
+    this.viewUp.crossVectors(this.viewRight, this.viewForward).normalize();
+
     this.setAspect(aspect);
     this.camera.position.copy(this.offset);
     this.camera.lookAt(0, 0, 0);
+  }
+
+  /**
+   * Aligns the view to a grid of `width` by `height` texels. At sprite
+   * resolutions an unaligned camera makes the whole scene crawl and shimmer as
+   * it moves, because every surface resamples slightly differently each frame.
+   * Pass zeroes to turn the alignment off.
+   */
+  setTexelGrid(width: number, height: number): void {
+    this.texelsWide = width;
+    this.texelsHigh = height;
+    this.refreshTexelSize();
   }
 
   setAspect(aspect: number): void {
@@ -33,6 +60,13 @@ export class IsometricCamera {
     this.camera.top = halfHeight;
     this.camera.bottom = -halfHeight;
     this.camera.updateProjectionMatrix();
+    this.refreshTexelSize();
+  }
+
+  private refreshTexelSize(): void {
+    const { left, right, top, bottom } = this.camera;
+    this.unitsPerTexelX = this.texelsWide > 0 ? (right - left) / this.texelsWide : 0;
+    this.unitsPerTexelY = this.texelsHigh > 0 ? (top - bottom) / this.texelsHigh : 0;
   }
 
   snapTo(target: Vector3): void {
@@ -67,7 +101,28 @@ export class IsometricCamera {
   }
 
   private applyTransform(): void {
-    this.camera.position.copy(this.focus).add(this.offset).add(this.shakeOffset);
-    this.camera.lookAt(this.focus.x + this.shakeOffset.x, 0, this.focus.z + this.shakeOffset.z);
+    this.aligned.copy(this.focus).add(this.shakeOffset);
+    this.alignToTexelGrid();
+
+    this.camera.position.copy(this.aligned).add(this.offset);
+    this.camera.lookAt(this.aligned);
+  }
+
+  /** Rounds the focus along the two screen axes to whole texels. */
+  private alignToTexelGrid(): void {
+    if (this.unitsPerTexelX <= 0 || this.unitsPerTexelY <= 0) return;
+
+    const right = this.aligned.dot(this.viewRight);
+    const up = this.aligned.dot(this.viewUp);
+    const depth = this.aligned.dot(this.viewForward);
+
+    const snappedRight = Math.round(right / this.unitsPerTexelX) * this.unitsPerTexelX;
+    const snappedUp = Math.round(up / this.unitsPerTexelY) * this.unitsPerTexelY;
+
+    this.aligned
+      .copy(this.viewRight)
+      .multiplyScalar(snappedRight)
+      .addScaledVector(this.viewUp, snappedUp)
+      .addScaledVector(this.viewForward, depth);
   }
 }

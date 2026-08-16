@@ -14,6 +14,7 @@ export class Hud {
   private readonly enemyToggle = requireElement<HTMLButtonElement>('enemy-toggle');
   private readonly fireToggle = requireElement<HTMLButtonElement>('fire-toggle');
   private readonly steerToggle = requireElement<HTMLButtonElement>('steer-toggle');
+  private readonly spriteToggle = requireElement<HTMLButtonElement>('sprite-toggle');
   private readonly speedSlider = requireElement<HTMLInputElement>('speed-slider');
   private readonly speedValue = requireElement<HTMLSpanElement>('speed-value');
 
@@ -61,6 +62,19 @@ export class Hud {
   setScreenSteering(screenRelative: boolean): void {
     this.steerToggle.setAttribute('aria-pressed', String(screenRelative));
     this.steerToggle.textContent = `STEER: ${screenRelative ? 'SCREEN' : 'TANK'}`;
+  }
+
+  onToggleSprite(handler: (enabled: boolean) => void): void {
+    this.spriteToggle.addEventListener('click', () => {
+      const enabled = this.spriteToggle.getAttribute('aria-pressed') !== 'true';
+      this.setSpriteLook(enabled);
+      handler(enabled);
+    });
+  }
+
+  setSpriteLook(enabled: boolean): void {
+    this.spriteToggle.setAttribute('aria-pressed', String(enabled));
+    this.spriteToggle.textContent = `LOOK: ${enabled ? 'SPRITE' : 'SMOOTH'}`;
   }
 
   /** The handler receives a multiplier of the tank's base top speed. */

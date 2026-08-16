@@ -6,6 +6,7 @@ import {
   Vector3,
 } from 'three';
 import { ARENA, ENEMY } from '../config';
+import { snapFacing } from '../fx/PixelPass';
 
 export interface Enemy {
   readonly mesh: Mesh;
@@ -15,6 +16,7 @@ export interface Enemy {
   contactCooldown: number;
   speed: number;
   bobPhase: number;
+  spin: number;
   active: boolean;
 }
 
@@ -38,6 +40,8 @@ export class EnemySwarm {
   private spawnTimer = 0;
   private elapsed = 0;
   private enabled = true;
+  /** Facings bodies may be drawn at; 0 draws the true angle. */
+  facings = 0;
 
   constructor() {
     const geometry = new IcosahedronGeometry(ENEMY.radius, 0);
@@ -63,6 +67,7 @@ export class EnemySwarm {
         contactCooldown: 0,
         speed: ENEMY.minSpeed,
         bobPhase: 0,
+        spin: 0,
         active: false,
       });
     }
@@ -122,7 +127,8 @@ export class EnemySwarm {
 
       enemy.bobPhase += dt * 9;
       enemy.position.y = ENEMY.height / 2 + Math.sin(enemy.bobPhase) * 0.18;
-      enemy.mesh.rotation.y += dt * 2.4;
+      enemy.spin += dt * 2.4;
+      enemy.mesh.rotation.y = snapFacing(enemy.spin, this.facings);
       enemy.mesh.rotation.x = Math.sin(enemy.bobPhase * 0.5) * 0.25;
 
       // Bodies visibly shrivel as they burn down.
@@ -189,6 +195,7 @@ export class EnemySwarm {
     enemy.contactCooldown = 0;
     enemy.speed = ENEMY.minSpeed + Math.random() * (ENEMY.maxSpeed - ENEMY.minSpeed);
     enemy.bobPhase = Math.random() * Math.PI * 2;
+    enemy.spin = Math.random() * Math.PI * 2;
     enemy.active = true;
     enemy.mesh.visible = true;
     enemy.mesh.scale.set(1, Y_SQUASH, 1);

@@ -12,6 +12,22 @@ export const ARENA = {
   gridColor: 0x6a87a8,
 };
 
+/**
+ * Makes the 3D scene read as pre-rendered 2D sprite art, the way Diablo II's
+ * models were baked down to a low resolution indexed palette.
+ */
+export const SPRITE = {
+  enabledByDefault: true,
+  /** Vertical resolution the scene is rendered at before being upscaled. */
+  renderHeight: 288,
+  /** Colour steps per channel after quantisation. */
+  colorLevels: 12,
+  /** Ordered dither strength, in units of one colour step. */
+  ditherStrength: 0.7,
+  /** Distinct facings a body may show, as a pre-rendered sprite set had. */
+  facings: 16,
+};
+
 export const CAMERA = {
   /**
    * World units covered by the shorter screen axis. Driving the frustum from

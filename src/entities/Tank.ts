@@ -8,6 +8,7 @@ import {
   Vector3,
 } from 'three';
 import { ARENA, FLAME, TANK } from '../config';
+import { snapFacing } from '../fx/PixelPass';
 import type { DriveCommand } from '../systems/Steering';
 
 /**
@@ -22,6 +23,8 @@ export class Tank {
 
   heading = 0;
   health = TANK.maxHealth;
+  /** Facings the hull may be drawn at; 0 draws the true heading. */
+  facings = 0;
 
   /** Signed speed of each track in metres per second. */
   private trackLeft = 0;
@@ -180,7 +183,7 @@ export class Tank {
 
   private syncTransform(): void {
     this.root.position.copy(this.position);
-    this.root.rotation.y = this.heading;
+    this.root.rotation.y = snapFacing(this.heading, this.facings);
     this.body.rotation.x = this.lean.pitch;
     this.body.rotation.z = this.lean.roll;
   }

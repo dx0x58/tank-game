@@ -1,10 +1,11 @@
 import { Scene, Vector3, type WebGLRenderer } from 'three';
-import { CAMERA, EFFECTS, ENEMY, FLAME, TANK } from '../config';
+import { CAMERA, EFFECTS, ENEMY, FLAME, SPRITE, TANK } from '../config';
 import { EnemySwarm } from '../entities/EnemySwarm';
 import { FireTrail } from '../entities/FireTrail';
 import { Flamethrower } from '../entities/Flamethrower';
 import { Tank } from '../entities/Tank';
 import { Effects } from '../fx/Effects';
+import { PixelPass } from '../fx/PixelPass';
 import { InputManager } from '../input/InputManager';
 import { resolveCombat } from '../systems/Combat';
 import { Steering } from '../systems/Steering';
@@ -34,6 +35,8 @@ export class Game {
   private readonly flame = new Flamethrower();
   private readonly trail = new FireTrail();
   private readonly effects = new Effects();
+  private readonly pixelPass: PixelPass;
+  private spriteLook = SPRITE.enabledByDefault;
 
   private readonly nozzle = new Vector3();
   private readonly tail = new Vector3();
@@ -46,6 +49,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, surface: HTMLElement) {
     this.renderer = createRenderer(canvas);
+    this.pixelPass = new PixelPass(this.renderer.toneMappingExposure);
     this.view = new IsometricCamera(window.innerWidth / window.innerHeight);
     this.lighting = new Lighting(this.scene);
     this.input = new InputManager(surface);
@@ -72,6 +76,11 @@ export class Game {
       this.steering.reset();
     });
     this.hud.setScreenSteering(this.steering.mode === 'screen');
+    this.hud.onToggleSprite((enabled) => {
+      this.spriteLook = enabled;
+      this.applySpriteLook();
+    });
+    this.hud.setSpriteLook(this.spriteLook);
     this.hud.configureSpeedSlider(TANK.speedScaleMin, TANK.speedScaleMax);
     this.hud.onSpeedChange((scale) => this.tank.setSpeedScale(scale));
     window.addEventListener('resize', () => this.resize());
@@ -103,7 +112,12 @@ export class Game {
     this.effects.update(dt);
     this.view.update(this.tank.position, dt);
     this.lighting.follow(this.tank.position);
-    this.renderer.render(this.scene, this.view.camera);
+
+    if (this.spriteLook) {
+      this.pixelPass.render(this.renderer, this.scene, this.view.camera);
+    } else {
+      this.renderer.render(this.scene, this.view.camera);
+    }
 
     requestAnimationFrame(this.frame);
   };
@@ -181,5 +195,23 @@ export class Game {
     const height = window.innerHeight;
     this.renderer.setSize(width, height, false);
     this.view.setAspect(width / height);
+    this.pixelPass.setSize(width, height);
+    this.applySpriteLook();
+  }
+
+  /**
+   * The sprite look is more than a filter: bodies snap to a fixed set of
+   * facings and the camera aligns to the pixel grid, both of which have to
+   * follow the toggle.
+   */
+  private applySpriteLook(): void {
+    const { width, height } = this.pixelPass.resolution;
+    this.tank.facings = this.spriteLook ? SPRITE.facings : 0;
+    this.swarm.facings = this.spriteLook ? SPRITE.facings : 0;
+    if (this.spriteLook) {
+      this.view.setTexelGrid(width, height);
+    } else {
+      this.view.setTexelGrid(0, 0);
+    }
   }
 }
