@@ -26,6 +26,7 @@ phone that shares the network to test the touch controls.
 | Fire | Always on, no input | Always on, no input |
 | Enemies on/off | ENEMIES button, top right | ENEMIES button, top right |
 | Fire on/off | FIRE button, top right | FIRE button, top right |
+| Steering scheme | STEER button, top right | STEER button, top right |
 | Speed | SPEED slider, top right | SPEED slider, top right |
 | Restart | Redeploy button | Redeploy button |
 
@@ -62,22 +63,47 @@ for free rather than being special-cased:
 - turning while moving requires slowing one track, and the acceleration limit is what
   makes that feel heavy.
 
-### Steering follows the direction of travel
+## Two steering schemes
 
-Steering flips once the tank is actually rolling backwards, so pushing the stick right
-always curves the tank right rather than swinging the nose right and the tail left. The
-hull-relative alternative is authentic but close to unreadable from a fixed isometric
-camera, where "which way is the tank facing" is exactly the thing that is hard to see.
+The STEER button switches between them. Whichever is selected only changes how the stick
+becomes a throttle and a track difference; the drive model underneath is the same, so
+the tank keeps its weight either way.
 
-The flip keys off measured speed, not off the stick, so braking from a forward run keeps
-direct steering for as long as the tank is still moving forward. `TANK.reverseThreshold`
-keeps it from flapping around a standstill, and `TANK.invertSteerInReverse` turns the
-whole behaviour off.
+### SCREEN (default)
 
-One consequence of the drive model is worth knowing: slam from full forward to full
-reverse and the tank briefly ignores steering entirely. Both tracks are pinned at the
-same deceleration limit, so there is no difference between them to yaw with. Ease off
-the throttle and steering returns.
+The stick names a direction **on screen**, and the tank works out how to get going that
+way. Push up and the tank travels up the screen no matter which way its hull is pointing:
+if the target is ahead it drives at it nose first, and if it is behind it backs up
+towards it instead of grinding through a slow 180. Throttle eases off while the hull is
+still swinging round, so a hard turn becomes a pivot rather than a wide arc.
+
+This is the camera-relative scheme that fixed-camera games settled on. The stick vector
+is projected onto the camera's ground-plane basis - screen-up is the camera's own forward
+direction flattened, screen-right is that rotated a quarter turn - which is the change of
+basis an isometric game needs so that pushing a diagonal means the diagonal you can see.
+The forward-or-reverse choice is latched with hysteresis (`enterReverseAngle` /
+`enterForwardAngle`) so it cannot chatter when the stick sits near a right angle to the
+hull.
+
+### TANK
+
+The classic hull-relative scheme: forward on the stick drives the hull forward, lateral
+pivots it. Authentic, and the reason tank controls exist at all, but from a fixed
+isometric camera the hull's facing is the very thing that is hard to read, so a reverse
+towards the top of the screen needs the stick held *down*. Kept for comparison.
+
+In this mode steering still flips once the tank is genuinely rolling backwards, so the
+stick at least follows the direction of travel. That flip keys off measured speed rather
+than the stick, so braking from a forward run stays direct while the tank still moves
+forward. `TANK.reverseThreshold` keeps it from flapping at a standstill and
+`TANK.invertSteerInReverse` disables it.
+
+### A quirk of the drive model
+
+Slam from full forward to full reverse and the tank briefly ignores steering. Both tracks
+are pinned at the same deceleration limit, so there is no difference between them to yaw
+with. Ease off the throttle and steering returns. SCREEN mode rarely provokes it, since
+it never commands full reverse against full forward motion.
 
 ### Speed slider
 
@@ -105,6 +131,7 @@ src/
     InputState.ts        the shared control surface
   systems/
     Combat.ts            flame cone damage and enemy/hull collision resolution
+    Steering.ts          stick to drive command, screen-relative or hull-relative
   fx/Effects.ts          muzzle flash and pooled debris
   ui/Hud.ts              HP, score, timer, stick widget, game over overlay
   world/
@@ -160,6 +187,8 @@ first:
 - `TANK.trackAccel` / `TANK.trackDecel` - how much mass the hull seems to have.
 - `TANK.yawSeparation` - larger values make turning more sluggish.
 - `TANK.turnAuthority` - how much of the stick's lateral axis reaches the tracks.
+- `STEERING.fullSteerAngle` - how sharply SCREEN mode corrects a heading error.
+- `STEERING.enterReverseAngle` - how far behind a target must be before backing up.
 - `ENEMY.spawnIntervalStart` / `spawnIntervalEnd` / `rampDuration` - pressure curve.
 - `FLAME.range` / `halfAngle` / `damagePerSecond` - reach, width and bite of the jet.
   If you change `range`, re-derive `particleSpeed` from the formula above so the visible

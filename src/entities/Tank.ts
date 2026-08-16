@@ -8,7 +8,7 @@ import {
   Vector3,
 } from 'three';
 import { ARENA, FLAME, TANK } from '../config';
-import type { InputState } from '../input/InputState';
+import type { DriveCommand } from '../systems/Steering';
 
 /**
  * Heading convention: the hull's forward axis is local +Z, so the world-space
@@ -41,6 +41,11 @@ export class Tank {
 
   get isAlive(): boolean {
     return this.health > 0;
+  }
+
+  /** Signed speed along the hull axis; negative means rolling backwards. */
+  get travelSpeed(): number {
+    return this.speed;
   }
 
   /** Current forward top speed, after the HUD speed slider is applied. */
@@ -94,8 +99,8 @@ export class Tank {
     this.syncTransform();
   }
 
-  update(input: InputState, dt: number): void {
-    const [targetLeft, targetRight] = this.resolveTrackTargets(input);
+  update(command: DriveCommand, dt: number): void {
+    const [targetLeft, targetRight] = this.resolveTrackTargets(command);
 
     this.trackLeft = this.approachTrackSpeed(this.trackLeft, targetLeft, dt);
     this.trackRight = this.approachTrackSpeed(this.trackRight, targetRight, dt);
@@ -120,13 +125,9 @@ export class Tank {
    * Maps the stick to per-track targets. Pure lateral deflection makes the
    * tracks counter-rotate, which is what produces the pivot turn on the spot.
    */
-  private resolveTrackTargets(input: InputState): [number, number] {
-    const reversing =
-      TANK.invertSteerInReverse && this.speed < -TANK.reverseThreshold;
-    const steer = reversing ? -input.steer : input.steer;
-
-    let left = input.throttle + steer * TANK.turnAuthority;
-    let right = input.throttle - steer * TANK.turnAuthority;
+  private resolveTrackTargets(command: DriveCommand): [number, number] {
+    let left = command.throttle + command.steer * TANK.turnAuthority;
+    let right = command.throttle - command.steer * TANK.turnAuthority;
 
     const peak = Math.max(Math.abs(left), Math.abs(right));
     if (peak > 1) {

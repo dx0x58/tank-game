@@ -118,6 +118,24 @@ export const FLAME = {
 };
 
 /**
+ * How the stick is interpreted. In `screen` mode the stick names a direction on
+ * screen and the tank works out whether to drive at it or back towards it,
+ * which is the camera-relative scheme modern fixed-camera games settled on.
+ * `tank` mode is the classic hull-relative scheme kept for comparison.
+ */
+export const STEERING = {
+  defaultMode: 'screen' as 'screen' | 'tank',
+  /** Heading error at which steering is already hard over. */
+  fullSteerAngle: 0.6,
+  /** Switch to reverse once the target is this far behind the nose... */
+  enterReverseAngle: 1.92,
+  /** ...and back to forward only below this, so the choice cannot chatter. */
+  enterForwardAngle: 1.22,
+  /** Throttle floor when the tank is turning hard, so it pivots rather than stalls. */
+  minThrottleWhileTurning: 0.15,
+};
+
+/**
  * Burning trail the tank lays behind itself. It exists to deal with the part of
  * the swarm the forward-facing flamer cannot reach: whatever chases the hull
  * has to cross the fire.

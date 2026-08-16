@@ -13,6 +13,7 @@ export class Hud {
   private readonly restartButton = requireElement<HTMLButtonElement>('restart-button');
   private readonly enemyToggle = requireElement<HTMLButtonElement>('enemy-toggle');
   private readonly fireToggle = requireElement<HTMLButtonElement>('fire-toggle');
+  private readonly steerToggle = requireElement<HTMLButtonElement>('steer-toggle');
   private readonly speedSlider = requireElement<HTMLInputElement>('speed-slider');
   private readonly speedValue = requireElement<HTMLSpanElement>('speed-value');
 
@@ -46,6 +47,20 @@ export class Hud {
 
   setFireEnabled(enabled: boolean): void {
     paintToggle(this.fireToggle, 'FIRE', enabled);
+  }
+
+  /** Pressed means screen-relative steering; released means hull-relative. */
+  onToggleSteering(handler: (screenRelative: boolean) => void): void {
+    this.steerToggle.addEventListener('click', () => {
+      const screenRelative = this.steerToggle.getAttribute('aria-pressed') !== 'true';
+      this.setScreenSteering(screenRelative);
+      handler(screenRelative);
+    });
+  }
+
+  setScreenSteering(screenRelative: boolean): void {
+    this.steerToggle.setAttribute('aria-pressed', String(screenRelative));
+    this.steerToggle.textContent = `STEER: ${screenRelative ? 'SCREEN' : 'TANK'}`;
   }
 
   /** The handler receives a multiplier of the tank's base top speed. */

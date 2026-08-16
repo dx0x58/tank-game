@@ -7,6 +7,7 @@ import { Tank } from '../entities/Tank';
 import { Effects } from '../fx/Effects';
 import { InputManager } from '../input/InputManager';
 import { resolveCombat } from '../systems/Combat';
+import { Steering } from '../systems/Steering';
 import { Hud } from '../ui/Hud';
 import { buildArena } from '../world/Arena';
 import { Lighting } from '../world/Lighting';
@@ -27,6 +28,7 @@ export class Game {
   private readonly hud = new Hud(isCoarsePointer());
   private readonly input: InputManager;
 
+  private readonly steering = new Steering();
   private readonly tank = new Tank();
   private readonly swarm = new EnemySwarm();
   private readonly flame = new Flamethrower();
@@ -65,6 +67,11 @@ export class Game {
     });
     this.hud.setEnemiesEnabled(this.swarm.isEnabled);
     this.hud.setFireEnabled(this.fireEnabled);
+    this.hud.onToggleSteering((screenRelative) => {
+      this.steering.mode = screenRelative ? 'screen' : 'tank';
+      this.steering.reset();
+    });
+    this.hud.setScreenSteering(this.steering.mode === 'screen');
     this.hud.configureSpeedSlider(TANK.speedScaleMin, TANK.speedScaleMax);
     this.hud.onSpeedChange((scale) => this.tank.setSpeedScale(scale));
     window.addEventListener('resize', () => this.resize());
@@ -105,7 +112,12 @@ export class Game {
     this.elapsed += dt;
     this.damageGrace = Math.max(0, this.damageGrace - dt);
 
-    this.tank.update(this.input.state, dt);
+    const command = this.steering.command(
+      this.input.state,
+      this.tank.heading,
+      this.tank.travelSpeed,
+    );
+    this.tank.update(command, dt);
     this.swarm.update(dt, this.tank.position);
     if (this.fireEnabled) this.view.addShake(FLAME.shakePerSecond * dt);
     if (this.elapsed > HINT_DURATION) this.hud.dismissFireHint();
