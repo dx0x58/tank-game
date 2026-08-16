@@ -184,14 +184,26 @@ scaling rather than the usual cheap approximation, so that both LOOK modes grade
 identically. It also applies the transfer function itself, which matters: the colour
 steps have to land where the eye sees them, not in linear light.
 
-**Facings and a texel-aligned camera.** Bodies snap to `SPRITE.facings` distinct angles,
-as a pre-rendered sprite set had. The camera rounds its focus to whole texels along the
-two screen axes, which is the fix for the pixel crawl that otherwise makes the whole
-scene shimmer as it moves. Sliding along the view axis is left alone, since under an
+**A texel-aligned camera.** The camera rounds its focus to whole texels along the two
+screen axes, which is the fix for the pixel crawl that otherwise makes the whole scene
+shimmer as it moves. Sliding along the view axis is left alone, since under an
 orthographic projection that moves nothing on screen.
 
 The trade-off of aligning rather than sub-pixel shifting is that the world scrolls in
 whole pixels. That is what sprite games did anyway.
+
+### Why rotation is not stepped
+
+`SPRITE.facings` can snap bodies to a fixed set of angles, the way a pre-rendered sprite
+set only existed at 8 or 16 directions. It is off by default, and that is deliberate.
+
+Discretising rotation while position, camera, flame and everything else stay continuous
+quantises exactly one channel, and it reads as the frame rate collapsing during turns
+rather than as a style. Sprite games got away with it because their entire presentation
+ran at one low cadence, so nothing looked out of step with anything else. Matching that
+here would mean driving the whole render at, say, 20 Hz, which would put visible latency
+on steering the player is doing by hand. Between one coherent look and the other, smooth
+rotation is the one that costs nothing. Set `facings` to 8 or 16 to see the alternative.
 
 ## The fire trail
 
@@ -223,8 +235,9 @@ first:
 - `TANK.turnAuthority` - how much of the stick's lateral axis reaches the tracks.
 - `SPRITE.renderHeight` - pixel size of the sprite look; lower is chunkier.
 - `SPRITE.colorLevels` / `ditherStrength` - palette depth and how hard it dithers.
-- `SPRITE.facings` - distinct angles bodies may be drawn at; 8 is the Diablo II monster
-  count, 16 what its player characters used.
+- `SPRITE.facings` - distinct angles bodies may be drawn at, 0 for smooth. 8 is the
+  Diablo II monster count, 16 what its player characters used. See above for why it
+  ships off.
 - `STEERING.fullSteerAngle` - how sharply SCREEN mode corrects a heading error.
 - `STEERING.enterReverseAngle` - how far behind a target must be before backing up.
 - `ENEMY.spawnIntervalStart` / `spawnIntervalEnd` / `rampDuration` - pressure curve.

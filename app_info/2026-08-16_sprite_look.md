@@ -43,8 +43,16 @@ The consequence is that the world scrolls in whole pixels, which is what sprite 
 anyway; the alternative from the article - snapping and then shifting the output back by
 the sub-texel error - was not worth the extra pass here.
 
-Bodies snap to `SPRITE.facings` angles via `snapFacing`, applied to the tank's hull and
-to the enemies' spin.
+Bodies can snap to `SPRITE.facings` angles via `snapFacing`, applied to the tank's hull
+and to the enemies' spin.
+
+**Shipped at 16 facings, then turned off after review.** Snapping rotation while
+position, camera, flame and debris all stayed continuous discretised exactly one channel,
+and it read as the frame rate collapsing during turns rather than as a style. The
+authentic version of this is a whole presentation running at one low cadence, which would
+have put visible latency on hand-driven steering. Of the two coherent options, smooth
+rotation is the one that costs nothing, so `facings` now defaults to 0 with the knob kept
+and documented.
 
 A `LOOK: SPRITE / SMOOTH` toggle switches all of it, including the facings and the camera
 alignment, since they are part of the look rather than of the simulation.

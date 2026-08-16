@@ -24,8 +24,17 @@ export const SPRITE = {
   colorLevels: 12,
   /** Ordered dither strength, in units of one colour step. */
   ditherStrength: 0.7,
-  /** Distinct facings a body may show, as a pre-rendered sprite set had. */
-  facings: 16,
+  /**
+   * Distinct facings a body may show, as a pre-rendered sprite set had.
+   *
+   * Off by default. Snapping rotation while position, camera and effects all
+   * stay continuous discretises exactly one channel, and the result reads as
+   * the frame rate dropping during turns rather than as a style. Sprite games
+   * got away with it because their whole presentation ran at one low cadence;
+   * matching that here would cost steering latency, so rotation stays smooth.
+   * Set to 8 or 16 to try it.
+   */
+  facings: 0,
 };
 
 export const CAMERA = {
