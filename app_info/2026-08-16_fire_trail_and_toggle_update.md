@@ -25,12 +25,26 @@ damage.
 
 Damage is 5/s against the jet's 10/s: this is area denial, not the main weapon.
 
-## Enemy toggle
+## Toggles
 
-A HUD button (top right, under the score panel) enables and disables the swarm so the
-driving model can be tried on its own. `EnemySwarm.setEnabled` clears every active body
-and returns early from `update`, which also freezes the difficulty ramp while off. The
-HUD has `pointer-events: none`, so the button opts back in explicitly.
+Two HUD buttons sit under the score panel, top right. The HUD has
+`pointer-events: none`, so they opt back in explicitly.
+
+**ENEMIES** enables and disables the swarm so the driving model can be tried on its own.
+`EnemySwarm.setEnabled` clears every active body and returns early from `update`, which
+also freezes the difficulty ramp while off.
+
+**FIRE** shuts down the jet and the trail together, along with the continuous camera
+rumble they add. `Game` holds one `fireEnabled` flag that gates the `emitting` argument
+of both fire systems and the `flameActive` field of the combat step, so nothing is
+emitted, nothing is drawn and nothing takes damage. Patches already on the ground burn
+out on their own instead of blinking away, since the systems were already written to
+keep decaying while not emitting.
+
+Neither switch is reset by Redeploy: a tuning session should survive dying.
+
+`resolveCombat` would have reached six positional parameters, past the project's limit,
+so it now takes a single `CombatStep` object.
 
 ## Bug found and fixed during review
 
@@ -50,6 +64,12 @@ console or page errors:
 - **Enemy toggle:** label switches to `ENEMIES: OFF`, and a stationary tank took no
   damage and gained no score over 8 seconds with the swarm off; toggling back on
   restored spawning.
+- **Fire toggle:** with fire off and the swarm on, 12 seconds of spinning scored exactly
+  0 - all damage output really is gone, not merely hidden. Switching fire back on scored
+  90 over the next 14 seconds. With both switches off the arena is empty and the tank
+  drives clean, with only the tail of the earlier trail still cooling on the ground.
+  Noted while testing: the game over card covers the whole screen, so the toggles are
+  unreachable until Redeploy is pressed. Left as is - you restart first anyway.
 - **Trail:** a long curving drive shows a continuous burning ribbon behind the hull,
   bright at the stern and cooling to dark red at the tail, running off the edge of a
   screen that covers about 51 world units - consistent with the 52-unit target.

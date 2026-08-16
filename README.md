@@ -25,10 +25,14 @@ phone that shares the network to test the touch controls.
 | Drive | Drag anywhere on the left half of the screen | Arrows or WASD |
 | Fire | Always on, no input | Always on, no input |
 | Enemies on/off | ENEMIES button, top right | ENEMIES button, top right |
+| Fire on/off | FIRE button, top right | FIRE button, top right |
 | Restart | Redeploy button | Redeploy button |
 
-The ENEMIES toggle clears the arena and stops spawning, so the driving model can be
-tried on its own. The difficulty ramp is frozen while the swarm is off.
+Two switches turn the game back into a test drive. ENEMIES clears the arena and stops
+spawning, freezing the difficulty ramp while it is off. FIRE shuts down both the jet and
+the trail, along with the rumble they add to the camera, leaving a bare tank to drive.
+Fire already on the ground burns out on its own rather than blinking away. Both switches
+survive a restart, so a tuning session is not interrupted by dying.
 
 The flamer burns constantly out of the hull's nose, so aiming means pointing the whole
 tank. Its reach is short, which sets the shape of the game: you cannot outrange the

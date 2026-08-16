@@ -36,6 +36,7 @@ export class Game {
   private readonly nozzle = new Vector3();
   private readonly tail = new Vector3();
   private running = true;
+  private fireEnabled = true;
   private score = 0;
   private elapsed = 0;
   private damageGrace = 0;
@@ -59,7 +60,11 @@ export class Game {
     this.view.snapTo(this.tank.position);
     this.hud.onRestart(() => this.restart());
     this.hud.onToggleEnemies((enabled) => this.swarm.setEnabled(enabled));
+    this.hud.onToggleFire((enabled) => {
+      this.fireEnabled = enabled;
+    });
     this.hud.setEnemiesEnabled(this.swarm.isEnabled);
+    this.hud.setFireEnabled(this.fireEnabled);
     window.addEventListener('resize', () => this.resize());
     this.resize();
     this.refreshHud();
@@ -80,11 +85,12 @@ export class Game {
     if (this.running) this.simulate(dt);
 
     // These run outside the simulation gate so the fire burns out after the
-    // tank dies rather than vanishing with it.
+    // tank dies, or after the player switches it off, rather than vanishing.
+    const burning = this.running && this.fireEnabled;
     this.tank.nozzlePosition(this.nozzle);
     this.tank.tailPosition(this.tail);
-    this.flame.update(dt, this.nozzle, this.tank.forward, this.running);
-    this.trail.update(dt, this.tail, this.running);
+    this.flame.update(dt, this.nozzle, this.tank.forward, burning);
+    this.trail.update(dt, this.tail, burning);
     this.effects.update(dt);
     this.view.update(this.tank.position, dt);
     this.lighting.follow(this.tank.position);
@@ -99,10 +105,17 @@ export class Game {
 
     this.tank.update(this.input.state, dt);
     this.swarm.update(dt, this.tank.position);
-    this.view.addShake(FLAME.shakePerSecond * dt);
+    if (this.fireEnabled) this.view.addShake(FLAME.shakePerSecond * dt);
     if (this.elapsed > HINT_DURATION) this.hud.dismissFireHint();
 
-    const combat = resolveCombat(this.tank, this.swarm, this.trail, this.effects, dt);
+    const combat = resolveCombat({
+      tank: this.tank,
+      swarm: this.swarm,
+      trail: this.trail,
+      effects: this.effects,
+      dt,
+      flameActive: this.fireEnabled,
+    });
 
     if (combat.kills > 0) {
       this.score += combat.kills * ENEMY.scorePerKill;

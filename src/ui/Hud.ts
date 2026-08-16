@@ -12,14 +12,15 @@ export class Hud {
   private readonly finalTime = requireElement<HTMLSpanElement>('final-time');
   private readonly restartButton = requireElement<HTMLButtonElement>('restart-button');
   private readonly enemyToggle = requireElement<HTMLButtonElement>('enemy-toggle');
+  private readonly fireToggle = requireElement<HTMLButtonElement>('fire-toggle');
 
   private knobTravel = 34;
   private hintHidden = false;
 
   constructor(coarsePointer: boolean) {
     this.fireHint.textContent = coarsePointer
-      ? 'DRAG THE LEFT SIDE TO DRIVE - THE FLAMER IS ALWAYS ON'
-      : 'ARROWS OR WASD TO DRIVE - THE FLAMER IS ALWAYS ON';
+      ? 'DRAG THE LEFT SIDE TO DRIVE - THE FLAMER BURNS ON ITS OWN'
+      : 'ARROWS OR WASD TO DRIVE - THE FLAMER BURNS ON ITS OWN';
     this.measureKnobTravel();
     window.addEventListener('resize', () => this.measureKnobTravel());
   }
@@ -30,16 +31,19 @@ export class Hud {
 
   /** The handler receives the state the player just switched to. */
   onToggleEnemies(handler: (enabled: boolean) => void): void {
-    this.enemyToggle.addEventListener('click', () => {
-      const enabled = this.enemyToggle.getAttribute('aria-pressed') !== 'true';
-      this.setEnemiesEnabled(enabled);
-      handler(enabled);
-    });
+    bindToggle(this.enemyToggle, 'ENEMIES', handler);
+  }
+
+  onToggleFire(handler: (enabled: boolean) => void): void {
+    bindToggle(this.fireToggle, 'FIRE', handler);
   }
 
   setEnemiesEnabled(enabled: boolean): void {
-    this.enemyToggle.setAttribute('aria-pressed', String(enabled));
-    this.enemyToggle.textContent = enabled ? 'ENEMIES: ON' : 'ENEMIES: OFF';
+    paintToggle(this.enemyToggle, 'ENEMIES', enabled);
+  }
+
+  setFireEnabled(enabled: boolean): void {
+    paintToggle(this.fireToggle, 'FIRE', enabled);
   }
 
   setHealth(current: number, max: number): void {
@@ -90,6 +94,23 @@ export class Hud {
     if (!base) return;
     this.knobTravel = Math.max(12, (base.clientWidth - this.stickKnob.clientWidth) / 2 - 3);
   }
+}
+
+function bindToggle(
+  button: HTMLButtonElement,
+  label: string,
+  handler: (enabled: boolean) => void,
+): void {
+  button.addEventListener('click', () => {
+    const enabled = button.getAttribute('aria-pressed') !== 'true';
+    paintToggle(button, label, enabled);
+    handler(enabled);
+  });
+}
+
+function paintToggle(button: HTMLButtonElement, label: string, enabled: boolean): void {
+  button.setAttribute('aria-pressed', String(enabled));
+  button.textContent = `${label}: ${enabled ? 'ON' : 'OFF'}`;
 }
 
 function formatTime(seconds: number): string {

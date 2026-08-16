@@ -10,6 +10,16 @@ export interface CombatResult {
   damageTaken: number;
 }
 
+export interface CombatStep {
+  tank: Tank;
+  swarm: EnemySwarm;
+  trail: FireTrail;
+  effects: Effects;
+  dt: number;
+  /** False while the player has switched the fire off to just drive around. */
+  flameActive: boolean;
+}
+
 const toEnemy = new Vector3();
 const push = new Vector3();
 
@@ -19,13 +29,8 @@ const CONTACT_RADIUS = TANK.radius + ENEMY.radius;
  * Burns whatever stands in the flame cone or in the trail behind the hull, and
  * bites back on hull contact.
  */
-export function resolveCombat(
-  tank: Tank,
-  swarm: EnemySwarm,
-  trail: FireTrail,
-  effects: Effects,
-  dt: number,
-): CombatResult {
+export function resolveCombat(step: CombatStep): CombatResult {
+  const { tank, swarm, trail, effects, dt, flameActive } = step;
   const result: CombatResult = { kills: 0, damageTaken: 0 };
 
   for (const enemy of swarm.all) {
@@ -35,7 +40,7 @@ export function resolveCombat(
     const distance = toEnemy.length();
 
     let burn = 0;
-    if (burnsInCone(tank, toEnemy, distance)) {
+    if (flameActive && burnsInCone(tank, toEnemy, distance)) {
       const falloff =
         1 - (1 - FLAME.falloffAtRange) * Math.min(1, distance / FLAME.range);
       burn += FLAME.damagePerSecond * falloff;
